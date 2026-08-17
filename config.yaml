@@ -1,0 +1,165 @@
+# LiteLLM proxy config — Fireworks + Anthropic setup
+# Start with:  cd /Users/dipen/litellm-env && set -a && source litellm.env && set +a && ./bin/litellm --config config.yaml --port 4000
+# Requires on PYTHONPATH: pii_router.py, injection_judge.py, judge_prompt.txt (this dir)
+
+model_list:
+  # ===================== KIMI MODELS =====================
+
+  - model_name: kimi-k2p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p7-code
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: kimi-k2p7-fast
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/routers/kimi-k2p7-code-fast
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: kimi-k2p6
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p6
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: kimi-k2p6-turbo
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/routers/kimi-k2p6-turbo
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: kimi-k3
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k3
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: kimi-k3-fast
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/routers/kimi-k3-fast
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== DEEPSEEK MODELS =====================
+
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v4-flash
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: deepseek-v4-flash-0731
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v4-flash-0731
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/deepseek-v4-pro
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== GLM MODELS =====================
+
+  - model_name: glm-5p2
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/glm-5p2
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: glm-5p2-fast
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/routers/glm-5p2-fast
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== QWEN MODELS =====================
+
+  - model_name: qwen3p7-plus
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/qwen3p7-plus
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== MINIMAX MODELS =====================
+
+  - model_name: minimax-m3
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m3
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: minimax-m2p7
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/minimax-m2p7
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== GPT-OSS MODELS =====================
+
+  - model_name: gpt-oss-120b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-120b
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  - model_name: gpt-oss-20b
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/gpt-oss-20b
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== NVIDIA MODELS =====================
+
+  - model_name: nemotron-3-ultra
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/nemotron-3-ultra-nvfp4
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== INKLING =====================
+
+  - model_name: inkling
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/inkling
+      api_key: os.environ/FIREWORKS_API_KEY
+
+  # ===================== ANTHROPIC MODELS =====================
+
+  - model_name: claude-haiku
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # Internal alias for the injection judge's own traffic — excluded from
+  # routing/PII/judge guardrails so it can never recurse or be rerouted.
+  - model_name: injection-judge
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # ===================== LEGACY ALIASES (backward compat) =====================
+  # The old "deepseek-v4" alias was actually pointing to kimi-k2p7-code.
+  # Preserved for backward compatibility.
+
+  - model_name: deepseek-v4
+    litellm_params:
+      model: fireworks_ai/accounts/fireworks/models/kimi-k2p7-code
+      api_key: os.environ/FIREWORKS_API_KEY
+
+guardrails:
+  # Layer 0: regex hard-blocks + masks — local, free, runs first
+  - guardrail_name: "hard-blocks"
+    litellm_params:
+      guardrail: pii_router.HardGuardrails
+      mode: "pre_call"
+      default_on: true
+
+  # Layer 1: Presidio PII routing — PII never reaches Anthropic (short-circuits here)
+  - guardrail_name: "pii-router"
+    litellm_params:
+      guardrail: pii_router.PIIRouter
+      mode: "pre_call"
+      default_on: true
+
+  # Layer 1.5: prompt-injection judge — Haiku judges the newest user/tool message
+  - guardrail_name: "injection-judge"
+    litellm_params:
+      guardrail: injection_judge.InjectionJudge
+      mode: "pre_call"
+      default_on: true
+
+  # Layer 2: Anthropic decision layer — judgment on everything that remains
+  - guardrail_name: "decision-layer"
+    litellm_params:
+      guardrail: pii_router.AnthropicDecisionLayer
+      mode: "pre_call"
+      default_on: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
